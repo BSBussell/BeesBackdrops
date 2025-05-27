@@ -100,7 +100,7 @@ function getRampValue(ramp, t) {
 	return value;
 }
 
-/**
+/** Bet it'd be nice if i updated these docstrings huh :3
  * @param {PIXI.Application} app - Pixi application instance.
  * @param {Object} config - Emitter configuration:
  *   @param {number} config.emitRate - particles per second.
