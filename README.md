@@ -18,7 +18,7 @@ Bee's Backdrops is a collection of ambient PixiJS scenes meant to serve as anima
 ## Scenes
 
 1. **FireFly Forest**: A peaceful forest at night with drifting fireflies and soft lighting. ~~PLEASE PLAY [FIREFLY](https://bbussell.com/firefly)~~
-2. **Scenic City**: A stylized city backdrop with moving lights and layers.
+2. **Scenic City**: A stylized ~~Chattanooga~~city backdrop with moving lights and layers.
 
 ## Getting Started
 
