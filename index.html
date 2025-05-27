@@ -1,0 +1,83 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bee’s Backdrops</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2216%22 font-size=%2216%22>🐝</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(to bottom right, #f5f7fa, #e0eafc);
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+      color: #3b3b3b;
+    }
+
+    p {
+      font-size: 1.2rem;
+      color: #555;
+      margin-bottom: 2rem;
+    }
+
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    a {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background-color: #ffe066;
+      color: #000;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
+
+    a:hover {
+      background-color: #ffdd57;
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      p {
+        font-size: 1rem;
+      }
+
+      a {
+        font-size: 0.95rem;
+        padding: 0.6rem 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>🐝 Bee’s Backdrops</h1>
+  <p>Choose a scene to escape into:</p>
+  <div class="links">
+    <a href="FireFlyForest.html">🌲 FireFly Forest</a>
+    <a href="ScenicCity.html">🌆 Scenic City</a>
+  </div>
+</body>
+</html>

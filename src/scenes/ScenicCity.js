@@ -1,0 +1,330 @@
+import { createSpriteLayer } from '../components/SpriteLayer.js';
+import { makeLayerParallax } from '../components/Parallax.js';
+import { makeTimeConstrained } from '../components/TimeConstrained.js';
+import { ParticleEmitter } from '../components/ParticleEmitter.js';
+
+const scrollScale = 0.2;
+
+console.log(PIXI.settings);
+
+// Create the application helper and add its render target to the page
+const app = new PIXI.Application();
+await app.init({ 
+    width: 1920, 
+    height: 1080,
+    antialias: false,
+    backgroundAlpha: 0,
+    backgroundColor: 0x000000,
+    useBackBuffer: true,
+    forceCanvas: false
+});
+
+// Enable pixel rounding and crisp pixel art rendering
+app.view.style.imageRendering = 'pixelated';
+
+document.body.appendChild(app.canvas);
+
+// Load assets in parallel
+await PIXI.Assets.load([
+  // Sky
+  { alias: 'sky', src: './assets/MTNS/Pixel Mountains & Hills - Parallax pack/1920x1080px (FullHD)/Parallax Backgrounds 1920x1080px/PixelMountainFullHD01/PixelMountainFullHD01_layer01.png' },
+  // Mountains
+  { alias: 'mountains', src: './assets/MTNS/Pixel Mountains & Hills - Parallax pack/1920x1080px (FullHD)/Parallax Backgrounds 1920x1080px/PixelMountainFullHD01/PixelMountainFullHD01_layer02.png' },
+  // Lake
+  { alias: 'lake', src: './assets/MTNS/Pixel Mountains & Hills - Parallax pack/1920x1080px (FullHD)/Parallax Backgrounds 1920x1080px/PixelMountainFullHD01/PixelMountainFullHD01_layer03.png' },
+  // City layers
+  { alias: 'cityNear', src: './assets/City/city 8/scaled_4_graded.png' },
+  { alias: 'cityNearWindows', src: './assets/City/city 8/scaled_4_window_layer.png' },
+  { alias: 'cityFront', src: './assets/City/city 8/scaled_5.png' },
+  { alias: 'cityFrontWindows', src: './assets/City/city 8/scaled_5_window_layer.png' },
+  // Lights
+  { alias: 'pixel_light', src: './assets/Lights/pixelLight.png' },
+  { alias: 'light', src: './assets/Lights/neutralPointDiy.png' },
+  { alias: 'spotlight', src: './assets/Lights/spotLight.png' },
+  // Particles
+  { alias: 'fireflies', src: './assets/Particles/FireFly.png' },
+  { alias: 'leaf', src: './assets/Particles/Leaf.png' },
+  { alias: 'star', src: './assets/Particles/Star.png' },
+  // Moon
+  { alias: 'moon', src: './assets/TreeLayers/moon.png' },
+]);
+
+
+
+// Setup the day-night cycle
+// CanvasModulate: day–night cycle tint over 60 seconds
+const dayLightFilter = new PIXI.ColorMatrixFilter();
+dayLightFilter.tint(0x4B419B, true);
+
+// This number will rotate between 0 - 1 - 0 over time
+let dayNightTime = 0;
+let elapsedTime = 7500;
+
+const cycleSeconds = 15;
+const cycleDuration = cycleSeconds * 1000; // Convert to ms
+const cycleAngularSpeed = (2 * Math.PI) / cycleDuration; // Angular speed for the sine wave
+
+app.ticker.add((delta) => {    
+    elapsedTime += delta.elapsedMS;
+    dayNightTime = 0.5 + 0.5 * Math.sin(cycleAngularSpeed * elapsedTime);
+
+    const alpha = dayNightTime;
+    dayLightFilter.alpha = alpha;
+});
+
+// For use within component update functions
+function getTime() {
+    return dayNightTime;
+}
+
+// Filters
+
+const lightBloomFilter = new PIXI.filters.AdvancedBloomFilter({
+    brightness: 1.5,
+    bloomScale: 0.5,
+    kernelSize: 5,
+    quality: 0.1,
+    resolution: 1,
+    threshold: 0.1,
+});
+
+const starBloomFilter = new PIXI.filters.AdvancedBloomFilter({
+    brightness: 1.0,
+    bloomScale: 1.5,
+    blur: 2.5,
+    quality: 0.1,
+    threshold: 0.1,
+});
+
+const windowBloomFilter = new PIXI.filters.AdvancedBloomFilter({
+    blur: 2.5,
+    brightness: 1.0,
+    quality: 2.5,
+    threshold: 0.1,
+});
+
+// If I decide to use the glow filter, I can use this
+const windowGlowFilter = new PIXI.filters.GlowFilter({
+    color: 0x8cefb6,
+    distance: 20,
+    innerStrength: 0,
+    outerStrength: 2,
+    quality: 0.25,
+});
+
+// Layers
+
+// Sky Layer
+const skyTexture = PIXI.Assets.get('sky');
+skyTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const skyLayer = createSpriteLayer(skyTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 0]
+});
+
+// Create star particles and add them to the stars layer
+// Build 1x1 pixel texture for the star particle
+const canvas = document.createElement('canvas');
+canvas.width = 1;
+canvas.height = 1;
+const context = canvas.getContext('2d');
+context.fillStyle = '#ffffff';
+context.fillRect(0, 0, 1, 1);
+const starTexture = PIXI.Texture.from(canvas);
+starTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const starEmitter = new ParticleEmitter(app, {
+    explosiveness: 0.0,
+    maxParticles: 50,
+    lifetime: [2, 3],
+    spawnArea: { type: 'rect', size: { x: app.screen.width, y: app.screen.height / 2 } },
+    initialVelocity: { speed: [0, 0], angle: [0, 0] },
+    acceleration: { x: 0, y: 0 },
+    damping: 0.0,
+    texture: starTexture,
+    scale: {
+        0.3: 0,
+        0.5: 8,
+        0.7: 0
+    },
+});
+starEmitter.start();
+
+// Moon Layer
+const moonTexture = PIXI.Assets.get('moon');
+moonTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const moonLayer = createSpriteLayer(moonTexture, {
+    tile: false,
+    scale: 5,
+    position: [100, 300]
+});
+
+// Add light to moon layer
+const moonLightTexture = PIXI.Assets.get('light');
+moonLightTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const moonLight = new PIXI.Sprite(moonLightTexture);
+moonLight.anchor.set(0.5);
+moonLight.scale.set(1.5);
+moonLight.alpha = 0.5;
+moonLight.blendMode = "add";
+moonLight.position.set(190, 375);
+moonLayer.container.addChild(moonLight);
+
+// Mountains layer
+const mountainsTexture = PIXI.Assets.get('mountains');
+mountainsTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const mountainsLayer = createSpriteLayer(mountainsTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 0]
+});
+
+// Lake layer
+const lakeTexture = PIXI.Assets.get('lake');
+lakeTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const lakeLayer = createSpriteLayer(lakeTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 175]
+});
+
+// City Near Layers
+const cityNearTexture = PIXI.Assets.get('cityNear');
+cityNearTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const cityNearLayer = createSpriteLayer(cityNearTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 150]
+});
+cityNearLayer.container.filters = [dayLightFilter];
+
+const cityNearWindowsTexture = PIXI.Assets.get('cityNearWindows');
+cityNearWindowsTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const cityNearWindowsLayer = createSpriteLayer(cityNearWindowsTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 150]
+});
+
+// Create a new container for the cityNear and cityNearWindows layers
+const cityNearFull = new PIXI.Container();
+cityNearFull.addChild(cityNearLayer.container);
+cityNearFull.addChild(cityNearWindowsLayer.container);
+
+// City Front Layers
+const cityFrontTexture = PIXI.Assets.get('cityFront');
+cityFrontTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const cityFrontLayer = createSpriteLayer(cityFrontTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 150]
+});
+cityFrontLayer.container.filters = [dayLightFilter];
+
+const cityFrontWindowsTexture = PIXI.Assets.get('cityFrontWindows');
+cityFrontWindowsTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+const cityFrontWindowsLayer = createSpriteLayer(cityFrontWindowsTexture, {
+    tile: true,
+    tileWidth: 1920,
+    tileHeight: 1080,
+    scale: 1,
+    position: [0, 150]
+});
+
+const cityFrontFull = new PIXI.Container();
+cityFrontFull.addChild(cityFrontLayer.container);
+cityFrontFull.addChild(cityFrontWindowsLayer.container);
+
+// City Light
+const cityLightTexture = PIXI.Assets.get('spotlight');
+const cityLightLayer = createSpriteLayer(cityLightTexture, {
+    scale: 8,
+    position: [0, 0],
+    tint: 0x8cefb6,
+});
+cityLightLayer.container.filters = [lightBloomFilter];
+
+// Apply filters to windows and stars
+cityNearWindowsLayer.container.filters = [windowBloomFilter];
+cityFrontWindowsLayer.container.filters = [windowBloomFilter];
+starEmitter.container.filters = [starBloomFilter];
+
+// Apply dayLightFilter to other layers
+skyLayer.container.filters = [dayLightFilter];
+mountainsLayer.container.filters = [dayLightFilter];
+lakeLayer.container.filters = [dayLightFilter];
+
+// Time constrained components
+// ---------------------------
+makeTimeConstrained(starEmitter, 0.75, 1.0, getTime, app, 0.8, 0.8, 0.1);
+makeTimeConstrained(moonLayer, 0.6, 1.0, getTime, app, 0.5, 1.0, 0.1);
+makeTimeConstrained(cityNearWindowsLayer, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.0);
+makeTimeConstrained(cityFrontWindowsLayer, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.0);
+makeTimeConstrained(cityLightLayer, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.0);
+
+// Apply parallax to layers
+// ------------------------
+makeLayerParallax(skyLayer, { speed: 1.0 * scrollScale, app });
+makeLayerParallax(moonLayer, { speed: -0.3 * scrollScale, app });
+makeLayerParallax(mountainsLayer, { speed: 2.0 * scrollScale, app });
+makeLayerParallax(cityNearFull, { speed: 4.0 * scrollScale, app });
+makeLayerParallax(cityFrontFull, { speed: 5.0 * scrollScale, app });
+makeLayerParallax(lakeLayer, { speed: 6.0 * scrollScale, app });
+
+// Add containers to stage in order
+app.stage.addChild(skyLayer.container);
+app.stage.addChild(starEmitter.container);
+app.stage.addChild(moonLayer.container);
+app.stage.addChild(mountainsLayer.container);
+app.stage.addChild(cityLightLayer.container);
+app.stage.addChild(cityNearFull);
+app.stage.addChild(cityFrontFull);
+app.stage.addChild(lakeLayer.container);
+
+
+
+// Smooth center zoom and fade-in
+(function transitionIn() {
+  const TARGET_SCALE = 1;
+  const START_SCALE = 2;
+  const FADE_SPEED = 0.07;
+  const ZOOM_SPEED = 0.04;
+
+  app.stage.scale.set(START_SCALE);
+  app.stage.pivot.set(app.screen.width / 2, app.screen.height / 2);
+  app.stage.position.set(app.screen.width / 2, app.screen.height / 2);
+  app.stage.alpha = 0;
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  const tick = () => {
+    app.stage.scale.x = lerp(app.stage.scale.x, TARGET_SCALE, ZOOM_SPEED);
+    app.stage.scale.y = lerp(app.stage.scale.y, TARGET_SCALE, ZOOM_SPEED);
+    app.stage.alpha = lerp(app.stage.alpha, 1, FADE_SPEED);
+
+    const scaleDone = Math.abs(app.stage.scale.x - TARGET_SCALE) < 0.001;
+    const alphaDone = Math.abs(app.stage.alpha - 1) < 0.001;
+
+    if (scaleDone && alphaDone) {
+      app.stage.scale.set(TARGET_SCALE);
+      app.stage.alpha = 1;
+      app.ticker.remove(tick);
+    }
+  };
+
+  app.ticker.add(tick);
+})();
