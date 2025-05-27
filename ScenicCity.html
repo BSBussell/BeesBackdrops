@@ -12,8 +12,19 @@
       overflow: hidden;
     }
 
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
     canvas {
       display: block;
+      width: auto;
+      height: 100vh;
+      object-fit: cover;
     }
   </style>
 </head>
@@ -22,6 +33,9 @@
   <script src="lib/pixi.min.js"></script>
   <script src="lib/advanced-blend-modes.min.js"></script>
   <script src="lib/pixi-filters.js"></script>
+  <script>
+    window.ScenicCityMain = true;
+  </script>
   <script type="module" src="src/scenes/ScenicCity.js"></script>
 </body>
 

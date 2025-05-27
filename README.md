@@ -17,7 +17,7 @@ Bee's Backdrops is a collection of ambient PixiJS scenes meant to serve as anima
 
 ### Prerequisites
 
-- A modern web browser that supports JavaScript ES6 modules.
+- A modern web browser that supports JavaScript ES6 modules or OBS!
 
 ### Setup
 
