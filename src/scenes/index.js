@@ -188,9 +188,12 @@ setInterval(transitionScenes, 50_00);
 
 // backdrop.container.addChild(frostOverlay);
 
+// Zoom backdrop to hide the edge blurs
 backdrop.filters = [blurFilter];
-
 app.stage.addChild(backdrop);
+
+
+
 
 app.stage.addChildAt(ambientBackEmitter.container, 0);
 app.stage.addChild(ambientEmitter.container);

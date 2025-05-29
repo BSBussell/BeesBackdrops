@@ -3,9 +3,15 @@ import { makeLayerParallax } from '../components/Parallax.js';
 import { makeTimeConstrained } from '../components/TimeConstrained.js'
 import { ParticleEmitter } from '../components/ParticleEmitter.js';
 
-const scrollScale = 0.25;
+const SCROLL_SCALE = 0.25;
 
-export async function createFireflyForest(app) {
+export async function createFireflyForest(app, options = {}) {
+
+	const scroll_speed = options.scroll_speed || SCROLL_SCALE;
+	const cycle_seconds = options.cycle_time || 15;
+	const real_time = options.real_time || false;
+
+
 	const rootContainer = new PIXI.Container();
 
 	await PIXI.Assets.load([
@@ -28,13 +34,37 @@ export async function createFireflyForest(app) {
 	let dayNightTime = 0;
 	let elapsedTime = 0;
 
-	const cycleSeconds = 15;
+	const cycleSeconds = cycle_seconds;
 	const cycleDuration = cycleSeconds * 1000; // Convert to ms
 	const cycleAngularSpeed = (2 * Math.PI) / cycleDuration; // Angular speed for the sine wave
 
 	app.ticker.add((delta) => {
-		elapsedTime += delta.elapsedMS;
-		dayNightTime = 0.5 + 0.5 * Math.sin(cycleAngularSpeed * elapsedTime);
+
+		// Update the day-night cycle based on system time
+		if (real_time) {
+			const now = new Date();
+			const hour = now.getHours();
+			const minutes = now.getMinutes();
+			
+			// Make this something a parameter can control
+			const nightTime = 20; // 8 PM
+			const dayTime = 15;  // 3 PM
+			
+
+			// Find the current time in the cycle
+			dayNightTime = (hour - dayTime) / (nightTime - dayTime);
+
+			// Clamp the value between 0 and 1
+			dayNightTime = Math.max(0, Math.min(1, dayNightTime));
+
+			console.log(`Real time: ${hour}:${minutes} -> Day-Night Time: ${dayNightTime}`);
+			
+			
+		} else {
+			elapsedTime += delta.elapsedMS;
+			dayNightTime = 0.5 + 0.5 * Math.sin(cycleAngularSpeed * elapsedTime);
+		}
+
 	});
 
 	// For use within component update functions
@@ -97,7 +127,7 @@ export async function createFireflyForest(app) {
 	starsLayer.container.addChild(starEmitter.container);
 	starEmitter.start();
 
-	makeLayerParallax(starsLayer, { speed: -0.01 * scrollScale, app });
+	makeLayerParallax(starsLayer, { speed: -0.01 * scroll_speed, app });
 	makeTimeConstrained(starsLayer, 0.6, 1.0, getTime, app, 0.5, 1.0, 0.0);
 
 	// Moon Layer
@@ -120,7 +150,7 @@ export async function createFireflyForest(app) {
 	moonLight.position.set(190, 740);
 	moonLayer.container.addChild(moonLight);
 
-	makeLayerParallax(moonLayer, { speed: -0.3 * scrollScale, app });
+	makeLayerParallax(moonLayer, { speed: -0.3 * scroll_speed, app });
 	makeTimeConstrained(moonLayer, 0.6, 1.0, getTime, app, 0.5, 1.0, 0.1);
 
 
@@ -134,7 +164,7 @@ export async function createFireflyForest(app) {
 		scale: 5,
 		position: [-150, 0]
 	});
-	makeLayerParallax(mountainsLayer, { speed: 0.2 * scrollScale, app });
+	makeLayerParallax(mountainsLayer, { speed: 0.2 * scroll_speed, app });
 
 
 	// Tree Layer
@@ -147,7 +177,7 @@ export async function createFireflyForest(app) {
 		scale: 5,
 		position: [-150, 0]
 	});
-	makeLayerParallax(treesLayer, { speed: 0.5 * scrollScale, app });
+	makeLayerParallax(treesLayer, { speed: 0.5 * scroll_speed, app });
 
 	// GodRay Layer
 	const godrayTexture = PIXI.Assets.get('firefly_godray');
@@ -160,7 +190,7 @@ export async function createFireflyForest(app) {
 		position: [-150, 0],
 		blendMode: "add"
 	});
-	makeLayerParallax(godrayLayer, { speed: 0.7 * scrollScale, app });
+	makeLayerParallax(godrayLayer, { speed: 0.7 * scroll_speed, app });
 
 
 	// Fireflies particle
@@ -261,7 +291,7 @@ export async function createFireflyForest(app) {
 		position: [-150, 0]
 	});
 	makeLayerParallax(foregroundLayer, {
-		speed: 0.9 * scrollScale,
+		speed: 0.9 * scroll_speed,
 		app
 	});
 
@@ -333,6 +363,24 @@ export async function createFireflyForest(app) {
 
 if (window.FireFlyMain) {
   (async () => {
+
+	const queryString = window.location.search;
+	const urlParams = new URLSearchParams(queryString);
+	console.log(urlParams);
+
+	let options = {}
+	for (const [key, value] of urlParams.entries()) {
+		if (key === 'scroll_speed') {
+			options.scroll_speed = parseFloat(value);
+		} else if (key === 'cycle_time') {
+			options.cycle_time = parseFloat(value);
+		} else if (key === 'real_time') {
+			options.real_time = value === 'true';
+		} else {
+			console.warn(`Unknown parameter: ${key}`);
+		}
+	}
+
     const app = new PIXI.Application();
     await app.init({
       width: 1920,
@@ -345,7 +393,13 @@ if (window.FireFlyMain) {
     app.view.style.imageRendering = 'pixelated';
     document.body.appendChild(app.canvas);
 	
-	const forest = await createFireflyForest(app);
+	const motionBlurFilter = new PIXI.filters.MotionBlurFilter({
+		velocity: { x: 0, y: 0 },
+		kernelSize: 1000,
+	});
+
+	const forest = await createFireflyForest(app, options);
+	forest.container.filters = [motionBlurFilter];
 	app.stage.addChild(forest.container);
 	
 	// Smooth center zoom and fade-in
@@ -373,15 +427,14 @@ if (window.FireFlyMain) {
             const alphaDone = Math.abs(app.stage.alpha - 1) < 0.001;
 
             if (scaleDone && alphaDone) {
-            app.stage.scale.set(TARGET_SCALE);
-            app.stage.alpha = 1;
-            app.ticker.remove(tick);
+				app.stage.scale.set(TARGET_SCALE);
+				app.stage.alpha = 1;
+				app.ticker.remove(tick);
             }
         };
 
         app.ticker.add(tick);
     })();
 
-    // (forest initialization and scaling now handled above)
   })();
 }
