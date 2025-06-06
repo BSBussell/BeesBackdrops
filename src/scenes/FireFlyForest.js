@@ -10,6 +10,9 @@ export async function createFireflyForest(app, options = {}) {
 	const scroll_speed = options.scroll_speed || SCROLL_SCALE;
 	const cycle_seconds = options.cycle_time || 15;
 	const real_time = options.real_time || false;
+	const test_time = options.test_time;
+	const peak_day_hour = options.peak_day_hour || 12;
+	const peak_night_hour = options.peak_night_hour || 0;
 
 
 	const rootContainer = new PIXI.Container();
@@ -39,32 +42,34 @@ export async function createFireflyForest(app, options = {}) {
 	const cycleAngularSpeed = (2 * Math.PI) / cycleDuration; // Angular speed for the sine wave
 
 	app.ticker.add((delta) => {
-
 		// Update the day-night cycle based on system time
 		if (real_time) {
-			const now = new Date();
-			const hour = now.getHours();
-			const minutes = now.getMinutes();
-			
-			// Make this something a parameter can control
-			const nightTime = 20; // 8 PM
-			const dayTime = 15;  // 3 PM
-			
+			let timeOfDay;
+			if (test_time !== undefined) {
+				timeOfDay = test_time;
+			} else {
+				const now = new Date();
+				const hour = now.getHours();
+				const minute = now.getMinutes();
+				timeOfDay = hour + minute / 60;
+			}
 
-			// Find the current time in the cycle
-			dayNightTime = (hour - dayTime) / (nightTime - dayTime);
+			// Compute shortest wrapped distance from timeOfDay to peak_day_hour
+			let distanceFromDay = Math.abs(timeOfDay - peak_day_hour);
+			distanceFromDay = Math.min(distanceFromDay, 24 - distanceFromDay);
 
-			// Clamp the value between 0 and 1
-			dayNightTime = Math.max(0, Math.min(1, dayNightTime));
+			// Linear falloff over 6 hours
+			const dayWeight = Math.min(Math.max(0, distanceFromDay / 6), 1);
 
-			console.log(`Real time: ${hour}:${minutes} -> Day-Night Time: ${dayNightTime}`);
-			
-			
+			// Log debug information
+			console.log(`Time of Day: ${timeOfDay}, Peak Day Hour: ${peak_day_hour}, Day Weight: ${dayWeight}`);
+
+			// Update the dayNightTime based on the weight
+			dayNightTime =dayWeight;
 		} else {
 			elapsedTime += delta.elapsedMS;
 			dayNightTime = 0.5 + 0.5 * Math.sin(cycleAngularSpeed * elapsedTime);
 		}
-
 	});
 
 	// For use within component update functions
@@ -376,6 +381,12 @@ if (window.FireFlyMain) {
 			options.cycle_time = parseFloat(value);
 		} else if (key === 'real_time') {
 			options.real_time = value === 'true';
+		} else if (key === 'test_time') {
+			options.test_time = parseFloat(value);
+		} else if (key === 'peak_day_hour') {
+			options.peak_day_hour = parseFloat(value);
+		} else if (key === 'peak_night_hour') {
+			options.peak_night_hour = parseFloat(value);
 		} else {
 			console.warn(`Unknown parameter: ${key}`);
 		}

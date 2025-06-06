@@ -16,7 +16,9 @@ https://digitalmoons.itch.io/pixel-mountains-hills
 Pixel Mountains & Hills - Parallax pack
 Pixel art Background pack by Digital Moons
 versio 1.0 
-
+#747dd1
+#9E74D1
+#74D1C8
 Content:
 
 - 12 Hand drawn pixel art landscape backgrounds

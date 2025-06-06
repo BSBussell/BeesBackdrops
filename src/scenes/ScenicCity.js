@@ -10,7 +10,14 @@ const scrollScale = 0.2;
 
 
 
-export async function createScenicCity(app) {
+export async function createScenicCity(app, options = {}) {
+
+    const scroll_speed = options.scroll_speed || scrollScale;
+    const cycle_seconds = options.cycle_time || 15;
+    const real_time = options.real_time || false;
+    const test_time = options.test_time;
+    const peak_day_hour = options.peak_day_hour || 12;
+    const peak_night_hour = options.peak_night_hour || 0;
 
     const rootContainer = new PIXI.Container();
 
@@ -51,16 +58,40 @@ export async function createScenicCity(app) {
     let dayNightTime = 0;
     let elapsedTime = 7500;
 
-    const cycleSeconds = 15;
-    const cycleDuration = cycleSeconds * 1000; // Convert to ms
+    const cycleDuration = cycle_seconds * 1000; // Convert to ms
     const cycleAngularSpeed = (2 * Math.PI) / cycleDuration; // Angular speed for the sine wave
 
-    app.ticker.add((delta) => {    
+    app.ticker.add((delta) => {
+      if (real_time) {
+        let timeOfDay;
+        if (test_time !== undefined) {
+          timeOfDay = test_time;
+        } else {
+          const now = new Date();
+          const hour = now.getHours();
+          const minute = now.getMinutes();
+          timeOfDay = hour + minute / 60;
+        }
+
+        // Compute shortest wrapped distance from timeOfDay to peak_day_hour
+        let distanceFromDay = Math.abs(timeOfDay - peak_day_hour);
+        distanceFromDay = Math.min(distanceFromDay, 24 - distanceFromDay);
+
+        // Linear falloff over 6 hours
+        const dayWeight = Math.min(Math.max(0, distanceFromDay / 6), 1);
+
+        // Log debug information
+        console.log(`Time of Day: ${timeOfDay}, Peak Day Hour: ${peak_day_hour}, Day Weight: ${dayWeight}`);
+
+        // Update the dayNightTime based on the weight
+        dayNightTime = dayWeight;
+      } else {
         elapsedTime += delta.elapsedMS;
         dayNightTime = 0.5 + 0.5 * Math.sin(cycleAngularSpeed * elapsedTime);
+      }
 
-        const alpha = dayNightTime;
-        dayLightFilter.alpha = alpha;
+      const alpha = dayNightTime;
+      dayLightFilter.alpha = alpha;
     });
 
     // For use within component update functions
@@ -261,18 +292,18 @@ export async function createScenicCity(app) {
     // ---------------------------
     makeTimeConstrained(starEmitter, 0.75, 1.0, getTime, app, 0.8, 0.8, 0.1);
     makeTimeConstrained(moonLayer, 0.6, 1.0, getTime, app, 0.5, 1.0, 0.1);
-    makeTimeConstrained(cityNearWindowsLayer, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.0);
-    makeTimeConstrained(cityFrontWindowsLayer, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.0);
-    makeTimeConstrained(cityLightLayer, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.0);
+    makeTimeConstrained(cityNearWindowsLayer, 0.75, 1.0, getTime, app, 1.0, 0.8, 0.0);
+    makeTimeConstrained(cityFrontWindowsLayer, 0.75, 1.0, getTime, app, 1.0, 0.8, 0.0);
+    makeTimeConstrained(cityLightLayer, 0.75, 1.0, getTime, app, 1.0, 0.8, 0.0);
 
     // Apply parallax to layers
     // ------------------------
-    makeLayerParallax(skyLayer, { speed: 1.0 * scrollScale, app });
-    makeLayerParallax(moonLayer, { speed: -0.3 * scrollScale, app });
-    makeLayerParallax(mountainsLayer, { speed: 2.0 * scrollScale, app });
-    makeLayerParallax(cityNearFull, { speed: 4.0 * scrollScale, app });
-    makeLayerParallax(cityFrontFull, { speed: 5.0 * scrollScale, app });
-    makeLayerParallax(lakeLayer, { speed: 6.0 * scrollScale, app });
+    makeLayerParallax(skyLayer, { speed: 1.0 * scroll_speed, app });
+    makeLayerParallax(moonLayer, { speed: -0.3 * scroll_speed, app });
+    makeLayerParallax(mountainsLayer, { speed: 2.0 * scroll_speed, app });
+    makeLayerParallax(cityNearFull, { speed: 4.0 * scroll_speed, app });
+    makeLayerParallax(cityFrontFull, { speed: 5.0 * scroll_speed, app });
+    makeLayerParallax(lakeLayer, { speed: 6.0 * scroll_speed, app });
 
     // Add containers to stage in order
     rootContainer.addChild(skyLayer.container);
@@ -303,7 +334,25 @@ if (window.ScenicCityMain) {
     app.view.style.imageRendering = 'pixelated';
     document.body.appendChild(app.canvas);
 
-    const city = await createScenicCity(app);
+    const options = {};
+    const urlParams = new URLSearchParams(window.location.search);
+    for (const [key, value] of urlParams.entries()) {
+      if (key === 'scroll_speed') {
+        options.scroll_speed = parseFloat(value);
+      } else if (key === 'cycle_time') {
+        options.cycle_time = parseFloat(value);
+      } else if (key === 'real_time') {
+        options.real_time = value === 'true';
+      } else if (key === 'test_time') {
+        options.test_time = parseFloat(value);
+      } else if (key === 'peak_day_hour') {
+        options.peak_day_hour = parseFloat(value);
+      } else if (key === 'peak_night_hour') {
+        options.peak_night_hour = parseFloat(value);
+      }
+    }
+
+    const city = await createScenicCity(app, options);
     app.stage.addChild(city.container);
 
     // Smooth center zoom and fade-in
