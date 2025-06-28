@@ -2,12 +2,9 @@ import { createSpriteLayer } from '../components/SpriteLayer.js';
 import { makeLayerParallax } from '../components/Parallax.js';
 import { makeTimeConstrained } from '../components/TimeConstrained.js'
 import { ParticleEmitter } from '../components/ParticleEmitter.js';
+import { StarEmitter } from '../components/StarEmitter.js';
 
 const scrollScale = 0.2;
-
-
-
-
 
 
 export async function createScenicCity(app, options = {}) {
@@ -44,7 +41,9 @@ export async function createScenicCity(app, options = {}) {
     { alias: 'scenic_leaf', src: './assets/Particles/Leaf.png' },
     { alias: 'scenic_star', src: './assets/Particles/Star.png' },
     // Moon
-    { alias: 'scenic_moon', src: './assets/TreeLayers/moon.png' },
+    { alias: 'scenic_moon', src: './assets/TreeLayers/moon-no-red.png' },
+    // Ambient sound
+    { alias: 'scenic_ambience', src: './assets/ambience/distant_city.mp3'}
     ]);
 
 
@@ -147,30 +146,36 @@ export async function createScenicCity(app, options = {}) {
         position: [0, 0]
     });
 
-    // Create star particles and add them to the stars layer
-    // Build 1x1 pixel texture for the star particle
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const context = canvas.getContext('2d');
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, 1, 1);
-    const starTexture = PIXI.Texture.from(canvas);
+    // Create starfield using StarEmitter
+    const starTexture = PIXI.Assets.get('scenic_star');
     starTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
-    const starEmitter = new ParticleEmitter(app, {
-        explosiveness: 0.0,
-        maxParticles: 50,
-        lifetime: [2, 3],
-        spawnArea: { type: 'rect', size: { x: app.screen.width, y: app.screen.height / 2 } },
-        initialVelocity: { speed: [0, 0], angle: [0, 0] },
-        acceleration: { x: 0, y: 0 },
-        damping: 0.0,
-        texture: starTexture,
-        scale: {
-            0.3: 0,
-            0.5: 8,
-            0.7: 0
+    const starEmitter = new StarEmitter(app, {
+        starCount: 25,
+        spawnArea: { type: 'rect', width: app.screen.width, height: app.screen.height / 2 },
+        starTexture: starTexture,
+        animationType: 'twinkle',
+        scaleRange: { min: 0.8, max: 2.0 },
+        baseColor: 0xffffff,
+        blendMode: 'normal',
+        alphaAnimation: {
+            enabled: true,
+            speed: [1, 5.8],
+            range: [0.3, 1.0],
+            phase: 'random'
         },
+        scaleAnimation: {
+            enabled: true,
+            speed: [1, 5.8],
+            range: [0.6+0.75, 1.4+0.75
+            ],
+            phase: 'random'
+        },
+        colorAnimation: {
+            enabled: false
+        },
+        drift: {
+            enabled: false
+        }
     });
     starEmitter.start();
 
@@ -290,7 +295,7 @@ export async function createScenicCity(app, options = {}) {
 
     // Time constrained components
     // ---------------------------
-    makeTimeConstrained(starEmitter, 0.75, 1.0, getTime, app, 0.8, 0.8, 0.1);
+    makeTimeConstrained(starEmitter, 0.5, 1.0, getTime, app, 0.8, 0.8, 0.1);
     makeTimeConstrained(moonLayer, 0.6, 1.0, getTime, app, 0.5, 1.0, 0.1);
     makeTimeConstrained(cityNearWindowsLayer, 0.75, 1.0, getTime, app, 1.0, 0.8, 0.0);
     makeTimeConstrained(cityFrontWindowsLayer, 0.75, 1.0, getTime, app, 1.0, 0.8, 0.0);
@@ -299,6 +304,7 @@ export async function createScenicCity(app, options = {}) {
     // Apply parallax to layers
     // ------------------------
     makeLayerParallax(skyLayer, { speed: 1.0 * scroll_speed, app });
+    makeLayerParallax(starEmitter, { speed: 1.0 * scroll_speed, app });
     makeLayerParallax(moonLayer, { speed: -0.3 * scroll_speed, app });
     makeLayerParallax(mountainsLayer, { speed: 2.0 * scroll_speed, app });
     makeLayerParallax(cityNearFull, { speed: 4.0 * scroll_speed, app });
@@ -314,6 +320,12 @@ export async function createScenicCity(app, options = {}) {
     rootContainer.addChild(cityNearFull);
     rootContainer.addChild(cityFrontFull);
     rootContainer.addChild(lakeLayer.container);
+
+    // Play ambient sound
+    const ambience = PIXI.sound.Sound.from(PIXI.Assets.get('scenic_ambience'));
+    ambience.loop = true;
+    ambience.volume = 0.2;
+    ambience.play();
 
     return {container: rootContainer};
 
