@@ -1,7 +1,7 @@
 import { createSpriteLayer } from '../components/SpriteLayer.js';
 import { makeLayerParallax } from '../components/Parallax.js';
 import { makeTimeConstrained } from '../components/TimeConstrained.js'
-import { ParticleEmitter } from '../components/ParticleEmitter.js';
+
 import { StarEmitter } from '../components/StarEmitter.js';
 
 const scrollScale = 0.2;
