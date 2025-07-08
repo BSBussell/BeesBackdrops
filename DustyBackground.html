@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+
+<!-- Bee's Dusty Background Layer:
+
+For iframe embedding as a dust overlay layer
+?opacity=0.8&density=medium&drift_speed=0.5&particle_size=small
+
+-->
+<head>
+  <meta charset="utf-8">
+  <title>Dusty Background - Bee's Backdrops</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2216%22 font-size=%2216%22>🐝</text></svg>">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: auto;
+      height: 100vh;
+      width: 100vw;
+      object-fit: cover;
+      background: transparent;
+    }
+  </style>
+</head>
+
+<body>
+  <script src="lib/pixi.min.js"></script>
+  <script src="lib/advanced-blend-modes.min.js"></script>
+  <script src="lib/pixi-filters.js"></script>
+  <script>
+    window.DustyMain = true;
+  </script>
+  <script type="module" src="src/scenes/DustyBackground.js"></script>
+</body>
+
+</html>
