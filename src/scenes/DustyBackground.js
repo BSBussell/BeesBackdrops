@@ -14,11 +14,19 @@ export async function createDustyBackground(app, options = {}) {
     const particle_lifetime = options.particle_lifetime || 'long'; // 'short', 'medium', 'long', 'eternal'
     
     // Visual parameters
-    const color_palette = options.color_palette || 'white'; // Default to white for no-params
+    const particle_color = options.particle_color || '#FFFFFF'; // Default white
     const blend_mode = options.blend_mode || 'normal'; // 'normal', 'add', 'multiply', 'overlay'
-    const glow_intensity = options.glow_intensity || 0.0; // 0.0 to 1.0
-    const shape_distortion = options.shape_distortion || 0.0; // 0.0 to 1.0 (0 = perfect circle, 1 = jagged)
+    const shape_distortion = options.shape_distortion || 0.0; // 0.0 = circle, 1.0 = jagged
+    const texture_resolution = options.texture_resolution || 1.0; // 0.25 to 2.0
     
+    // Particle appearance
+    const softness = options.softness || 0.7; // 0.0 sharp edges, 1.0 very soft
+    const glow_size = options.glow_size != null ? options.glow_size : 0.5; // Glow radius multiplier
+    const glow_intensity = options.glow_intensity != null ? options.glow_intensity : 0.5; // 0.0 = no glow, 1.0 = full brightness
+    
+    console.log('Glow Intensity:', glow_intensity);
+    console.log('Option:', options.glow_intensity);
+
     // Spawn parameters
     const spawn_area = options.spawn_area || 'full_screen'; // 'full_screen', 'edges', 'center', 'bottom_up'
     const spawn_burst = options.spawn_burst || 0.1; // 0.0 to 1.0 initial explosion
@@ -34,8 +42,20 @@ export async function createDustyBackground(app, options = {}) {
 
     const rootContainer = new PIXI.Container();
 
-    // Create dust texture (simple circular dust mote)
-    const dustTexture = createDustTexture(shape_distortion);
+    // Create dust texture without glow (glow handled by particle light system)
+    const dustTexture = createDustTexture(
+        shape_distortion,
+        particle_color,
+        texture_resolution,
+        softness
+    );
+
+    // Create glow texture for particle light system (only if needed)
+    const glowTexture = glow_intensity > 0 ? createGlowTexture(
+        glow_size,
+        particle_color,
+        texture_resolution
+    ) : null;
 
     // Density settings
     // Use density directly as particle count and calculate emitRate
@@ -56,48 +76,39 @@ export async function createDustyBackground(app, options = {}) {
 
     const currentLifetime = lifetimeSettings[particle_lifetime] || lifetimeSettings.long;
 
-    // Color palette settings
-    const colorPalettes = {
-        white: {
-            0.0: 0xFFFFFF,  // White
-            0.3: 0xF0F0F0,  // Light gray
-            0.6: 0xD0D0D0,  // Medium gray
-            1.0: 0xB0B0B0   // Darker gray
-        },
-        dusty_brown: {
-            0.0: 0x8B7355,  // Dusty brown
-            0.3: 0x9C8A6B,  // Lighter brown
-            0.6: 0x7A6A5A,  // Gray-brown
-            1.0: 0x6B5B4A   // Dark brown
-        },
-        ash_gray: {
-            0.0: 0x696969,  // Dim gray
-            0.3: 0x808080,  // Gray
-            0.6: 0x555555,  // Dark gray
-            1.0: 0x2F2F2F   // Very dark gray
-        },
-        spore_green: {
-            0.0: 0x556B2F,  // Dark olive green
-            0.3: 0x6B8E23,  // Olive drab
-            0.6: 0x4F5F2F,  // Dark olive
-            1.0: 0x2E3A1F   // Very dark olive
-        },
-        decay_purple: {
-            0.0: 0x6A5ACD,  // Slate blue
-            0.3: 0x483D8B,  // Dark slate blue
-            0.6: 0x4B0082,  // Indigo
-            1.0: 0x301934   // Very dark purple
-        }
+    // Convert hex color to PIXI color format
+    const baseColor = parseInt(particle_color.replace('#', ''), 16);
+    
+    // Create color variations for particle lifecycle
+    const particleColors = {
+        0.0: baseColor,
+        0.3: baseColor,
+        0.6: baseColor,
+        1.0: baseColor
     };
-
-    const currentColorPalette = colorPalettes[color_palette] || colorPalettes.white;
 
     // Spawn area settings
     const spawnAreas = {
-        full_screen: { type: 'rect', size: { x: app.screen.width, y: app.screen.height } },
-        edges: { type: 'rect', size: { x: app.screen.width * 1.2, y: app.screen.height * 1.2 } },
-        center: { type: 'circle', radius: Math.min(app.screen.width, app.screen.height) * 0.3 },
-        bottom_up: { type: 'rect', size: { x: app.screen.width, y: app.screen.height * 0.2 } }
+        full_screen: { 
+            type: 'rect', 
+            size: { x: app.screen.width, y: app.screen.height },
+            offset: { x: 0, y: 0 }
+        },
+        edges: { 
+            type: 'rect', 
+            size: { x: app.screen.width * 1.2, y: app.screen.height * 1.2 },
+            offset: { x: -app.screen.width * 0.1, y: -app.screen.height * 0.1 }
+        },
+        center: { 
+            type: 'circle', 
+            radius: Math.min(app.screen.width, app.screen.height) * 0.3,
+            offset: { x: app.screen.width * 0.5, y: app.screen.height * 0.5 }
+        },
+        bottom_up: { 
+            type: 'rect', 
+            size: { x: app.screen.width, y: app.screen.height * 0.2 },
+            offset: { x: 0, y: app.screen.height * 0.8 }
+        }
     };
 
     const currentSpawnArea = spawnAreas[spawn_area] || spawnAreas.full_screen;
@@ -108,13 +119,13 @@ export async function createDustyBackground(app, options = {}) {
             case 'up':
                 return {
                     speed: [5 * drift_speed, 15 * drift_speed],
-                    angle: [Math.PI * 1.3, Math.PI * 1.7], // Upward
+                    angle: [Math.PI * 1.25, Math.PI * 1.75], // Upward (270° ± 45°)
                     acceleration: { x: 0, y: -gravity_strength * 10 }
                 };
             case 'down':
                 return {
                     speed: [5 * drift_speed, 15 * drift_speed],
-                    angle: [Math.PI * 0.3, Math.PI * 0.7], // Downward
+                    angle: [Math.PI * 0.25, Math.PI * 0.75], // Downward (90° ± 45°)
                     acceleration: { x: 0, y: gravity_strength * 10 }
                 };
             case 'random':
@@ -122,7 +133,7 @@ export async function createDustyBackground(app, options = {}) {
                     speed: [3 * drift_speed, 12 * drift_speed],
                     angle: [0, Math.PI * 2], // All directions
                     acceleration: { 
-                        x: (Math.random() - 0.5) * wind_strength * 20, 
+                        x: wind_strength > 0 ? (Math.random() - 0.5) * wind_strength * 20 : 0, 
                         y: gravity_strength * 5 
                     }
                 };
@@ -130,12 +141,13 @@ export async function createDustyBackground(app, options = {}) {
                 return {
                     speed: [8 * drift_speed, 18 * drift_speed],
                     angle: [0, Math.PI * 2], // All directions
-                    acceleration: { x: 0, y: 0 }
+                    acceleration: { x: 0, y: 0 },
+                    circular: true // Special flag for circular motion
                 };
             default:
                 return {
                     speed: [5 * drift_speed, 15 * drift_speed],
-                    angle: [Math.PI * 1.3, Math.PI * 1.7],
+                    angle: [Math.PI * 1.25, Math.PI * 1.75], // Default to upward
                     acceleration: { x: 0, y: -gravity_strength * 10 }
                 };
         }
@@ -157,12 +169,12 @@ export async function createDustyBackground(app, options = {}) {
         
         // Turbulent, chaotic movement
         acceleration: {
-            x: (Math.random() - 0.5) * wind_strength * 20 * turbulence,
-            y: getDirectionSettings(float_direction).acceleration.y + (Math.random() - 0.5) * turbulence * 15
+            x: wind_strength > 0 ? (Math.random() - 0.5) * wind_strength * 20 * turbulence : 0,
+            y: getDirectionSettings(float_direction).acceleration.y + (turbulence > 0 ? (Math.random() - 0.5) * turbulence * 15 : 0)
         },
         
         // Ambient floating behavior
-        damping: 0.005 + (drift_chaos * 0.02),
+        damping: drift_chaos > 0 ? 0.005 + (drift_chaos * 0.02) : 0.005,
         
         // Size variation for depth
         scale: {
@@ -171,7 +183,7 @@ export async function createDustyBackground(app, options = {}) {
             1.0: sizeRange[0] * (0.3 + Math.random() * 0.2)
         },
         
-        color: currentColorPalette,
+        color: particleColors,
         
         // Organic fade pattern
         alpha: {
@@ -188,7 +200,30 @@ export async function createDustyBackground(app, options = {}) {
         ],
         
         texture: dustTexture,
-        blendMode: blend_mode
+        blendMode: blend_mode,
+        
+        // Glow light system (only if glow_intensity > 0)
+        ...(glow_intensity > 0 && {
+            light: {
+                texture: glowTexture,
+                lightScaleRamp: {
+                    0.0: glow_size * 2.0,
+                    0.5: glow_size * 2.5,
+                    1.0: glow_size * 1.5
+                },
+                lightHue: {
+                    0.0: baseColor,
+                    1.0: baseColor
+                },
+                lightEnergy: {
+                    0.0: 0.0,
+                    0.1: glow_intensity * 0.6,
+                    0.5: glow_intensity * 0.8,
+                    0.9: glow_intensity * 0.4,
+                    1.0: 0.0
+                }
+            }
+        })
     });
 
     // Secondary wispy dust layer
@@ -212,11 +247,11 @@ export async function createDustyBackground(app, options = {}) {
         },
         
         acceleration: {
-            x: (Math.random() - 0.5) * wind_strength * 8 * turbulence,
+            x: wind_strength > 0 ? (Math.random() - 0.5) * wind_strength * 8 * turbulence : 0,
             y: getDirectionSettings(float_direction).acceleration.y * 0.3
         },
         
-        damping: 0.002 + (drift_chaos * 0.01),
+        damping: drift_chaos > 0 ? 0.002 + (drift_chaos * 0.01) : 0.002,
         
         scale: {
             0.0: sizeRange[0] * 0.3,
@@ -224,11 +259,7 @@ export async function createDustyBackground(app, options = {}) {
             1.0: sizeRange[0] * 0.1
         },
         
-        color: {
-            0.0: currentColorPalette[0.3],
-            0.5: currentColorPalette[0.6],
-            1.0: currentColorPalette[1.0]
-        },
+        color: particleColors,
         
         alpha: {
             0.0: 0.0,
@@ -243,7 +274,29 @@ export async function createDustyBackground(app, options = {}) {
         ],
         
         texture: dustTexture,
-        blendMode: blend_mode
+        blendMode: blend_mode,
+        
+        // Softer glow for wispy particles (only if glow_intensity > 0)
+        ...(glow_intensity > 0 && {
+            light: {
+                texture: glowTexture,
+                lightScaleRamp: {
+                    0.0: glow_size * 1.5,
+                    0.5: glow_size * 2.0,
+                    1.0: glow_size * 1.0
+                },
+                lightHue: {
+                    0.0: baseColor,
+                    1.0: baseColor
+                },
+                lightEnergy: {
+                    0.0: 0.0,
+                    0.2: glow_intensity * 0.3,
+                    0.8: glow_intensity * 0.5,
+                    1.0: 0.0
+                }
+            }
+        })
     });
 
     // Chaotic drift emitter for extra atmosphere
@@ -264,11 +317,11 @@ export async function createDustyBackground(app, options = {}) {
         },
         
         acceleration: {
-            x: (Math.random() - 0.5) * wind_strength * 40 * turbulence,
-            y: (Math.random() - 0.5) * wind_strength * 30 * turbulence
+            x: wind_strength > 0 ? (Math.random() - 0.5) * wind_strength * 40 * turbulence : 0,
+            y: wind_strength > 0 ? (Math.random() - 0.5) * wind_strength * 30 * turbulence : 0
         },
         
-        damping: 0.01 + (drift_chaos * 0.03),
+        damping: drift_chaos > 0 ? 0.01 + (drift_chaos * 0.03) : 0.01,
         
         scale: {
             0.0: sizeRange[0] * 1.5,
@@ -276,11 +329,7 @@ export async function createDustyBackground(app, options = {}) {
             1.0: sizeRange[0] * 0.4
         },
         
-        color: {
-            0.0: currentColorPalette[0.0],
-            0.4: currentColorPalette[0.3],
-            1.0: currentColorPalette[1.0]
-        },
+        color: particleColors,
         
         alpha: {
             0.0: 0.0,
@@ -295,7 +344,29 @@ export async function createDustyBackground(app, options = {}) {
         ],
         
         texture: dustTexture,
-        blendMode: blend_mode
+        blendMode: blend_mode,
+        
+        // Stronger glow for chaotic particles (only if glow_intensity > 0)
+        ...(glow_intensity > 0 && {
+            light: {
+                texture: glowTexture,
+                lightScaleRamp: {
+                    0.0: glow_size * 2.5,
+                    0.3: glow_size * 3.0,
+                    1.0: glow_size * 1.0
+                },
+                lightHue: {
+                    0.0: baseColor,
+                    1.0: baseColor
+                },
+                lightEnergy: {
+                    0.0: 0.0,
+                    0.1: glow_intensity * 0.7,
+                    0.6: glow_intensity * 0.6,
+                    1.0: 0.0
+                }
+            }
+        })
     });
 
     dustEmitters.push(mainDustEmitter, wispyDustEmitter, chaoticDriftEmitter);
@@ -310,48 +381,72 @@ export async function createDustyBackground(app, options = {}) {
     return rootContainer;
 }
 
-// Create a dust particle texture with optional shape distortion
-function createDustTexture(distortion = 0.0) {
+// Create a dust particle texture without glow (glow handled by light system)
+function createDustTexture(
+    distortion = 0.0,
+    hexColor = '#FFFFFF',
+    resolution = 1.0,
+    softness = 0.7
+) {
     const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
+    
+    // Scale canvas size based on resolution (32px base, 0.25x to 2x)
+    const baseSize = 32;
+    const scaledSize = Math.max(8, Math.floor(baseSize * 4 * resolution)); // 8px to 256px
+    canvas.width = scaledSize;
+    canvas.height = scaledSize;
+    
     const ctx = canvas.getContext('2d');
     
-    // Create a soft, irregular dust mote
-    const centerX = 16;
-    const centerY = 16;
-    const baseRadius = 8;
+    // Enable high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     
-    // Create radial gradient for soft edges
-    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, baseRadius);
-    gradient.addColorStop(0, 'rgba(139, 115, 85, 0.9)');
-    gradient.addColorStop(0.4, 'rgba(139, 115, 85, 0.6)');
-    gradient.addColorStop(0.7, 'rgba(139, 115, 85, 0.3)');
-    gradient.addColorStop(1, 'rgba(139, 115, 85, 0)');
+    // Convert hex to RGB
+    const r = parseInt(hexColor.substr(1, 2), 16);
+    const g = parseInt(hexColor.substr(3, 2), 16);
+    const b = parseInt(hexColor.substr(5, 2), 16);
     
-    ctx.fillStyle = gradient;
+    // Create a soft, irregular dust mote (scaled based on resolution)
+    const centerX = scaledSize / 2;
+    const centerY = scaledSize / 2;
+    const baseRadius = scaledSize / 4;
     
-    // Draw shape based on distortion level
+    // Create main solid dust particle
+    const mainGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, baseRadius);
+    
+    // Calculate gradient stops based on softness
+    // softness 0.0 = sharp/solid transitions, softness 1.0 = very soft/gradual
+    const softnessInverse = 1.0 - softness;
+    const solidCore = Math.min(0.8, softnessInverse * 0.9); // More solid core for dust
+    const fadeStart = Math.max(solidCore, softnessInverse * 0.95); // Quick fade
+    
+    // Add texture variation for realistic dust appearance
+    const textureNoise = Math.random() * 0.2 + 0.8;
+    const coreAlpha = 0.9 * textureNoise;
+    const fadeAlpha = 0.3 * textureNoise;
+    
+    mainGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${coreAlpha})`);
+    mainGradient.addColorStop(solidCore, `rgba(${r}, ${g}, ${b}, ${coreAlpha * 0.9})`);
+    mainGradient.addColorStop(fadeStart, `rgba(${r}, ${g}, ${b}, ${fadeAlpha})`);
+    mainGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    
+    ctx.fillStyle = mainGradient;
     ctx.beginPath();
     
     if (distortion === 0.0) {
-        // Perfect circle
+        // Perfect circle for main particle
         ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
     } else {
-        // Create jagged, distorted shape
-        const numPoints = 8 + Math.floor(distortion * 12); // More points = more jagged
+        // Organic distorted shape for main particle
+        const numPoints = 8 + Math.floor(distortion * 12);
         const angleStep = (Math.PI * 2) / numPoints;
         
         for (let i = 0; i < numPoints; i++) {
             const angle = i * angleStep;
-            
-            // Base radius with distortion
-            const radiusVariation = 1.0 + (Math.random() - 0.5) * distortion * 0.8;
-            const jaggedVariation = 1.0 + (Math.random() - 0.5) * distortion * 0.6;
-            const radius = baseRadius * radiusVariation * jaggedVariation;
-            
-            // Add some noise to angle for more organic feel
-            const noisyAngle = angle + (Math.random() - 0.5) * distortion * 0.3;
+            const radiusVariation = 1.0 + (Math.random() - 0.5) * distortion * 0.6;
+            const radius = baseRadius * radiusVariation;
+            const noisyAngle = angle + (Math.random() - 0.5) * distortion * 0.2;
             
             const x = centerX + Math.cos(noisyAngle) * radius;
             const y = centerY + Math.sin(noisyAngle) * radius;
@@ -359,16 +454,15 @@ function createDustTexture(distortion = 0.0) {
             if (i === 0) {
                 ctx.moveTo(x, y);
             } else {
-                // Use curves for more organic shapes at high distortion
                 if (distortion > 0.3) {
+                    // Smooth curves for organic feel
                     const prevAngle = (i - 1) * angleStep;
-                    const prevRadius = baseRadius * (1.0 + (Math.random() - 0.5) * distortion * 0.8);
+                    const prevRadius = baseRadius * (1.0 + (Math.random() - 0.5) * distortion * 0.6);
                     const prevX = centerX + Math.cos(prevAngle) * prevRadius;
                     const prevY = centerY + Math.sin(prevAngle) * prevRadius;
                     
-                    // Control point for curve
-                    const controlX = (prevX + x) / 2 + (Math.random() - 0.5) * distortion * 4;
-                    const controlY = (prevY + y) / 2 + (Math.random() - 0.5) * distortion * 4;
+                    const controlX = (prevX + x) / 2 + (Math.random() - 0.5) * distortion * 3;
+                    const controlY = (prevY + y) / 2 + (Math.random() - 0.5) * distortion * 3;
                     
                     ctx.quadraticCurveTo(controlX, controlY, x, y);
                 } else {
@@ -376,40 +470,87 @@ function createDustTexture(distortion = 0.0) {
                 }
             }
         }
-        
         ctx.closePath();
     }
     
     ctx.fill();
     
-    // Add some texture variation (less pronounced for jagged shapes)
-    const textureIntensity = Math.max(0.4, 1.0 - distortion * 0.6);
-    ctx.fillStyle = `rgba(156, 138, 107, ${0.4 * textureIntensity})`;
-    ctx.beginPath();
-    
-    if (distortion < 0.5) {
-        ctx.arc(centerX - 2, centerY - 2, baseRadius * 0.6, 0, Math.PI * 2);
-    } else {
-        // Smaller irregular highlight for jagged shapes
-        const highlightRadius = baseRadius * 0.4;
-        const highlightPoints = 6;
-        const highlightAngleStep = (Math.PI * 2) / highlightPoints;
-        
-        for (let i = 0; i < highlightPoints; i++) {
-            const angle = i * highlightAngleStep;
-            const radius = highlightRadius * (0.8 + Math.random() * 0.4);
-            const x = centerX - 2 + Math.cos(angle) * radius;
-            const y = centerY - 2 + Math.sin(angle) * radius;
+    // Add random speckles and texture for more realistic ash/dust appearance
+    if (distortion > 0.2) {
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
+        const numSpeckles = Math.floor(distortion * 8);
+        for (let i = 0; i < numSpeckles; i++) {
+            const speckleX = centerX + (Math.random() - 0.5) * baseRadius * 1.5;
+            const speckleY = centerY + (Math.random() - 0.5) * baseRadius * 1.5;
+            const speckleSize = Math.random() * 2 + 0.5;
             
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
+            ctx.beginPath();
+            ctx.arc(speckleX, speckleY, speckleSize, 0, Math.PI * 2);
+            ctx.fill();
         }
-        ctx.closePath();
+        
+        // Add some irregular texture patches
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.2)`;
+        const numPatches = Math.floor(distortion * 4);
+        for (let i = 0; i < numPatches; i++) {
+            const patchX = centerX + (Math.random() - 0.5) * baseRadius;
+            const patchY = centerY + (Math.random() - 0.5) * baseRadius;
+            const patchSize = Math.random() * 4 + 2;
+            
+            ctx.beginPath();
+            ctx.ellipse(patchX, patchY, patchSize, patchSize * 0.6, Math.random() * Math.PI, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
     
+    return PIXI.Texture.from(canvas);
+}
+
+// Create a soft glow texture for particle light system
+function createGlowTexture(
+    glowSize = 0.5,
+    hexColor = '#FFFFFF',
+    resolution = 1.0
+) {
+    const canvas = document.createElement('canvas');
+    
+    // Scale canvas size based on resolution and glow size
+    const baseSize = 64; // Larger base for glow
+    const scaledSize = Math.max(16, Math.floor(baseSize * 2 * resolution * (1 + glowSize))); // 16px to 512px
+    canvas.width = scaledSize;
+    canvas.height = scaledSize;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Enable high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
+    // Convert hex to RGB
+    const r = parseInt(hexColor.substr(1, 2), 16);
+    const g = parseInt(hexColor.substr(3, 2), 16);
+    const b = parseInt(hexColor.substr(5, 2), 16);
+    
+    const centerX = scaledSize / 2;
+    const centerY = scaledSize / 2;
+    const glowRadius = scaledSize / 2;
+    
+    // Create soft radial gradient for glow
+    const glowGradient = ctx.createRadialGradient(
+        centerX, centerY, 0,
+        centerX, centerY, glowRadius
+    );
+    
+    // Very soft glow with multiple stops for smooth falloff
+    glowGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.8)`);
+    glowGradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.4)`);
+    glowGradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, 0.2)`);
+    glowGradient.addColorStop(0.8, `rgba(${r}, ${g}, ${b}, 0.1)`);
+    glowGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    
+    ctx.fillStyle = glowGradient;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
     ctx.fill();
     
     return PIXI.Texture.from(canvas);
@@ -450,10 +591,14 @@ if (window.DustyMain) {
             particle_lifetime: urlParams.get('particle_lifetime') || 'long',
             
             // Visual parameters
-            color_palette: urlParams.get('color_palette') || (hasParams ? 'dusty_brown' : 'white'),
+            particle_color: urlParams.get('particle_color') || (hasParams ? '#8B7355' : '#FFFFFF'),
             blend_mode: urlParams.get('blend_mode') || 'normal',
-            glow_intensity: parseFloat(urlParams.get('glow_intensity')) || 0.0,
+            // Glow intensity: use default 0.5 when not specified
+            glow_intensity: urlParams.get('glow_intensity') != null ? parseFloat(urlParams.get('glow_intensity')) : 0.5,
             shape_distortion: parseFloat(urlParams.get('shape_distortion')) || 0.0,
+            texture_resolution: parseFloat(urlParams.get('texture_resolution')) || 1.0,
+            softness: parseFloat(urlParams.get('softness')) || 0.7,
+            glow_size: parseFloat(urlParams.get('glow_size')) || 0.5,
             
             // Spawn parameters
             spawn_area: urlParams.get('spawn_area') || 'full_screen',
@@ -516,26 +661,6 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
     let testBgColor = 0x000000;
     
     // Helper functions for slider-based enums
-    const getDensityFromSlider = (value) => {
-        const densities = ['sparse', 'low', 'medium', 'high', 'heavy', 'overwhelming'];
-        return densities[Math.floor(value)];
-    };
-    
-    const getDensitySliderValue = (density) => {
-        const densities = ['sparse', 'low', 'medium', 'high', 'heavy', 'overwhelming'];
-        return densities.indexOf(density);
-    };
-    
-    const getSizeFromSlider = (value) => {
-        const sizes = ['microscopic', 'tiny', 'small', 'medium', 'large', 'massive'];
-        return sizes[Math.floor(value)];
-    };
-    
-    const getSizeSliderValue = (size) => {
-        const sizes = ['microscopic', 'tiny', 'small', 'medium', 'large', 'massive'];
-        return sizes.indexOf(size);
-    };
-    
     const getLifetimeFromSlider = (value) => {
         const lifetimes = ['short', 'medium', 'long', 'eternal'];
         return lifetimes[Math.floor(value)];
@@ -544,16 +669,6 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
     const getLifetimeSliderValue = (lifetime) => {
         const lifetimes = ['short', 'medium', 'long', 'eternal'];
         return lifetimes.indexOf(lifetime);
-    };
-    
-    const getColorFromSlider = (value) => {
-        const colors = ['white', 'dusty_brown', 'ash_gray', 'spore_green', 'decay_purple'];
-        return colors[Math.floor(value)];
-    };
-    
-    const getColorSliderValue = (color) => {
-        const colors = ['white', 'dusty_brown', 'ash_gray', 'spore_green', 'decay_purple'];
-        return colors.indexOf(color);
     };
     
     const getSpawnFromSlider = (value) => {
@@ -589,22 +704,26 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
     // Presets
     const presets = {
         'Stranger Things Upside Down': {
-            opacity: 0.9,
-            density: 120,
-            drift_speed: 0.4,
-            particle_size: 1.0,
-            float_direction: 'up',
-            wind_strength: 0.5,
-            turbulence: 0.7,
+            opacity: 0.7,
+            density: 180,
+            drift_speed: 0.3,
+            particle_size: 0.8,
+            float_direction: 'random',
+            wind_strength: 0.4,
+            turbulence: 0.8,
             particle_lifetime: 'long',
-            color_palette: 'ash_gray',
+            particle_color: '#4A4A4A',
             blend_mode: 'normal',
             spawn_area: 'full_screen',
-            spawn_burst: 0.3,
-            drift_chaos: 0.6,
-            gravity_strength: -0.2,
-            rotation_speed: 0.3,
-            shape_distortion: 0.3
+            spawn_burst: 0.2,
+            drift_chaos: 0.7,
+            gravity_strength: 0.05,
+            rotation_speed: 0.2,
+            shape_distortion: 0.6,
+            texture_resolution: 1.2,
+            softness: 0.3,
+            glow_intensity: 0.5,
+            glow_size: 0.4
         },
         'Spore Storm': {
             opacity: 0.8,
@@ -615,14 +734,18 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
             wind_strength: 0.8,
             turbulence: 0.9,
             particle_lifetime: 'medium',
-            color_palette: 'spore_green',
+            particle_color: '#556B2F',
             blend_mode: 'add',
             spawn_area: 'edges',
             spawn_burst: 0.7,
             drift_chaos: 0.8,
             gravity_strength: 0.1,
             rotation_speed: 1.2,
-            shape_distortion: 0.8
+            shape_distortion: 0.8,
+            texture_resolution: 1.5,
+            softness: 0.4,
+            glow_intensity: 0.5,
+            glow_size: 0.8
         },
         'Ethereal Decay': {
             opacity: 0.6,
@@ -633,14 +756,18 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
             wind_strength: 0.1,
             turbulence: 0.2,
             particle_lifetime: 'eternal',
-            color_palette: 'decay_purple',
+            particle_color: '#6A5ACD',
             blend_mode: 'overlay',
             spawn_area: 'center',
             spawn_burst: 0.1,
             drift_chaos: 0.1,
             gravity_strength: 0.0,
             rotation_speed: 0.8,
-            shape_distortion: 0.2
+            shape_distortion: 0.2,
+            texture_resolution: 2.0,
+            softness: 0.9,
+            glow_intensity: 0.5,
+            glow_size: 0.7
         },
         'Gentle Drift': {
             opacity: 0.5,
@@ -651,14 +778,18 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
             wind_strength: 0.2,
             turbulence: 0.3,
             particle_lifetime: 'long',
-            color_palette: 'white',
+            particle_color: '#FFFFFF',
             blend_mode: 'normal',
             spawn_area: 'bottom_up',
             spawn_burst: 0.0,
             drift_chaos: 0.2,
             gravity_strength: -0.1,
             rotation_speed: 0.4,
-            shape_distortion: 0.0
+            shape_distortion: 0.0,
+            texture_resolution: 0.75,
+            softness: 0.6,
+            glow_intensity: 0.5,
+            glow_size: 0.3
         }
     };
 
@@ -819,7 +950,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
         <div class="param-group">
             <h4>Core Parameters</h4>
             <div class="param-row">
-                <span class="param-label">Opacity</span>
+                <span class="param-label" title="Overall opacity/transparency of the dust overlay">Opacity</span>
                 <div class="param-control">
                     <input type="range" min="0" max="1" step="0.1" value="${options.opacity}" 
                            onchange="updateParam('opacity', parseFloat(this.value))">
@@ -827,7 +958,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Density (particles)</span>
+                <span class="param-label" title="Total number of dust particles on screen">Density (particles)</span>
                 <div class="param-control">
                     <input type="range" min="5" max="500" step="5" value="${options.density}" 
                            onchange="updateParam('density', parseInt(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -835,7 +966,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Drift Speed</span>
+                <span class="param-label" title="Base speed of particle movement - how fast they drift">Drift Speed</span>
                 <div class="param-control">
                     <input type="range" min="0" max="2" step="0.1" value="${options.drift_speed}" 
                            onchange="updateParam('drift_speed', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -843,7 +974,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Particle Size (scale)</span>
+                <span class="param-label" title="Size of individual dust particles">Particle Size (scale)</span>
                 <div class="param-control">
                     <input type="range" min="0.1" max="10" step="0.1" value="${options.particle_size}" 
                            onchange="updateParam('particle_size', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -855,7 +986,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
         <div class="param-group">
             <h4>Movement & Physics</h4>
             <div class="param-row">
-                <span class="param-label">Direction</span>
+                <span class="param-label" title="Primary direction of particle movement: up, down, random, or circular spiral">Direction</span>
                 <div class="param-control">
                     <input type="range" min="0" max="3" step="1" value="${getDirectionSliderValue(options.float_direction)}" 
                            onchange="updateParam('float_direction', getDirectionFromSlider(this.value)); this.nextElementSibling.textContent = getDirectionFromSlider(this.value);">
@@ -863,7 +994,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Wind Strength</span>
+                <span class="param-label" title="Horizontal wind force affecting particle drift">Wind Strength</span>
                 <div class="param-control">
                     <input type="range" min="0" max="1" step="0.1" value="${options.wind_strength}" 
                            onchange="updateParam('wind_strength', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -871,7 +1002,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Turbulence</span>
+                <span class="param-label" title="Random motion variations - higher = more chaotic movement">Turbulence</span>
                 <div class="param-control">
                     <input type="range" min="0" max="1" step="0.1" value="${options.turbulence}" 
                            onchange="updateParam('turbulence', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -879,7 +1010,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Drift Chaos</span>
+                <span class="param-label" title="Random velocity variations - adds unpredictability to particle paths">Drift Chaos</span>
                 <div class="param-control">
                     <input type="range" min="0" max="1" step="0.1" value="${options.drift_chaos}" 
                            onchange="updateParam('drift_chaos', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -887,7 +1018,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Gravity</span>
+                <span class="param-label" title="Gravity force: negative = particles float up, positive = sink down">Gravity</span>
                 <div class="param-control">
                     <input type="range" min="-1" max="1" step="0.1" value="${options.gravity_strength}" 
                            onchange="updateParam('gravity_strength', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -895,7 +1026,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Rotation Speed</span>
+                <span class="param-label" title="How fast particles rotate as they drift">Rotation Speed</span>
                 <div class="param-control">
                     <input type="range" min="0" max="2" step="0.1" value="${options.rotation_speed}" 
                            onchange="updateParam('rotation_speed', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -907,15 +1038,14 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
         <div class="param-group">
             <h4>Visual & Spawn</h4>
             <div class="param-row">
-                <span class="param-label">Color Palette</span>
+                <span class="param-label">Particle Color</span>
                 <div class="param-control">
-                    <input type="range" min="0" max="4" step="1" value="${getColorSliderValue(options.color_palette)}" 
-                           onchange="updateParam('color_palette', getColorFromSlider(this.value)); this.nextElementSibling.textContent = getColorFromSlider(this.value);">
-                    <div class="slider-label">${options.color_palette}</div>
+                    <input type="color" value="${options.particle_color}" 
+                           onchange="updateParam('particle_color', this.value);">
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Blend Mode</span>
+                <span class="param-label" title="How particles combine with the background: normal, add (brighten), multiply (darken), overlay">Blend Mode</span>
                 <div class="param-control">
                     <input type="range" min="0" max="3" step="1" value="${getBlendSliderValue(options.blend_mode)}" 
                            onchange="updateParam('blend_mode', getBlendFromSlider(this.value)); this.nextElementSibling.textContent = getBlendFromSlider(this.value);">
@@ -923,7 +1053,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Shape Distortion</span>
+                <span class="param-label" title="Shape variation: 0 = perfect circles, 1 = jagged organic shapes">Shape Distortion</span>
                 <div class="param-control">
                     <input type="range" min="0" max="1" step="0.1" value="${options.shape_distortion}" 
                            onchange="updateParam('shape_distortion', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -931,7 +1061,39 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Spawn Area</span>
+                <span class="param-label" title="Texture quality: lower = better performance, higher = sharper particles">Texture Resolution</span>
+                <div class="param-control">
+                    <input type="range" min="0.25" max="2" step="0.25" value="${options.texture_resolution}" 
+                           onchange="updateParam('texture_resolution', parseFloat(this.value)); this.nextElementSibling.textContent = this.value + 'x';">
+                    <div class="slider-label">${options.texture_resolution}x</div>
+                </div>
+            </div>
+            <div class="param-row">
+                <span class="param-label" title="Gradient falloff control (0 = sharp/solid edges, 1 = very soft/gradual transitions)">Particle Softness</span>
+                <div class="param-control">
+                    <input type="range" min="0" max="1" step="0.1" value="${options.softness}" 
+                           onchange="updateParam('softness', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
+                    <div class="slider-label">${options.softness}</div>
+                </div>
+            </div>
+            <div class="param-row">
+                <span class="param-label" title="Size of glow behind particles (0 = no glow, 1 = large glow)">Glow Size</span>
+                <div class="param-control">
+                    <input type="range" min="0" max="1" step="0.1" value="${options.glow_size}" 
+                           onchange="updateParam('glow_size', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
+                    <div class="slider-label">${options.glow_size}</div>
+                </div>
+            </div>
+            <div class="param-row">
+                <span class="param-label" title="Brightness of glow behind particles (0 = no glow, 1 = full brightness)">Glow Intensity</span>
+                <div class="param-control">
+                    <input type="range" min="0" max="1" step="0.1" value="${options.glow_intensity}" 
+                           onchange="updateParam('glow_intensity', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
+                    <div class="slider-label">${options.glow_intensity}</div>
+                </div>
+            </div>
+            <div class="param-row">
+                <span class="param-label" title="Where particles spawn: full screen, edges (slightly outside), center circle, or bottom area">Spawn Area</span>
                 <div class="param-control">
                     <input type="range" min="0" max="3" step="1" value="${getSpawnSliderValue(options.spawn_area)}" 
                            onchange="updateParam('spawn_area', getSpawnFromSlider(this.value)); this.nextElementSibling.textContent = getSpawnFromSlider(this.value);">
@@ -939,7 +1101,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Spawn Burst</span>
+                <span class="param-label" title="How concentrated the spawn timing is: 0 = steady flow, 1 = burst all at once">Spawn Burst</span>
                 <div class="param-control">
                     <input type="range" min="0" max="1" step="0.1" value="${options.spawn_burst}" 
                            onchange="updateParam('spawn_burst', parseFloat(this.value)); this.nextElementSibling.textContent = this.value;">
@@ -947,7 +1109,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
                 </div>
             </div>
             <div class="param-row">
-                <span class="param-label">Lifetime</span>
+                <span class="param-label" title="How long each particle lives: short (3-8s), medium (8-15s), long (15-30s), eternal (30-60s)">Lifetime</span>
                 <div class="param-control">
                     <input type="range" min="0" max="3" step="1" value="${getLifetimeSliderValue(options.particle_lifetime)}" 
                            onchange="updateParam('particle_lifetime', getLifetimeFromSlider(this.value)); this.nextElementSibling.textContent = getLifetimeFromSlider(this.value);">
@@ -963,10 +1125,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
     document.body.appendChild(menuContainer);
     
     // Global functions for menu interactions
-    window.getDensityFromSlider = getDensityFromSlider;
-    window.getSizeFromSlider = getSizeFromSlider;
     window.getLifetimeFromSlider = getLifetimeFromSlider;
-    window.getColorFromSlider = getColorFromSlider;
     window.getSpawnFromSlider = getSpawnFromSlider;
     window.getDirectionFromSlider = getDirectionFromSlider;
     window.getBlendFromSlider = getBlendFromSlider;
