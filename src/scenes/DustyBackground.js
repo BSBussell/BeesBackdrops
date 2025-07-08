@@ -798,7 +798,7 @@ function createParameterMenu(options, recreateScene, createTestBackground) {
             }
         </style>
         
-        <div class="menu-header">🌪️ Dusty Atmosphere</div>
+        <div class="menu-header">Dust Thing-y</div>
         
         <div class="preset-buttons">
             ${Object.keys(presets).map(name => 
