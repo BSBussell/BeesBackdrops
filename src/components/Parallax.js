@@ -16,8 +16,11 @@ export function makeLayerParallax(src_component, { speed = 1, app }) {
 
   // Create this containers update function
   function update(delta) {
+    // Don't apply parallax if speed is 0
+    if (speed === 0) {
+        return;
+    }
 
-    
     function applyParallaxToChildren(displayObject) {
         for (const child of displayObject.children) {
             if (child instanceof PIXI.TilingSprite) {

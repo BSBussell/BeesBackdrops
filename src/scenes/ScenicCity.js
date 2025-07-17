@@ -9,12 +9,13 @@ const scrollScale = 0.2;
 
 export async function createScenicCity(app, options = {}) {
 
-    const scroll_speed = options.scroll_speed || scrollScale;
+    const scroll_speed = options.scroll_speed !== undefined ? options.scroll_speed : scrollScale;
     const cycle_seconds = options.cycle_time || 15;
     const real_time = options.real_time || false;
     const test_time = options.test_time;
     const peak_day_hour = options.peak_day_hour || 12;
     const peak_night_hour = options.peak_night_hour || 0;
+    const fixed_night = options.night;
 
     const rootContainer = new PIXI.Container();
 
@@ -61,7 +62,10 @@ export async function createScenicCity(app, options = {}) {
     const cycleAngularSpeed = (2 * Math.PI) / cycleDuration; // Angular speed for the sine wave
 
     app.ticker.add((delta) => {
-      if (real_time) {
+      if (fixed_night !== undefined) {
+        // Use fixed night value if provided
+        dayNightTime = fixed_night;
+      } else if (real_time) {
         let timeOfDay;
         if (test_time !== undefined) {
           timeOfDay = test_time;
@@ -361,6 +365,8 @@ if (window.ScenicCityMain) {
         options.peak_day_hour = parseFloat(value);
       } else if (key === 'peak_night_hour') {
         options.peak_night_hour = parseFloat(value);
+      } else if (key === 'night') {
+        options.night = parseFloat(value);
       }
     }
 
