@@ -1,0 +1,96 @@
+{
+  "solar": false,
+  "images": [
+    {
+      "fileName": "wallpaper_00.png",
+      "time": "2020-01-01T12:00:00Z",
+      "isPrimary": true,
+      "isForLight": true
+    },
+    {
+      "fileName": "wallpaper_01.png",
+      "time": "2020-01-01T11:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_01.png",
+      "time": "2020-01-01T13:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_02.png",
+      "time": "2020-01-01T10:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_02.png",
+      "time": "2020-01-01T14:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_03.png",
+      "time": "2020-01-01T09:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_03.png",
+      "time": "2020-01-01T15:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_04.png",
+      "time": "2020-01-01T08:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_04.png",
+      "time": "2020-01-01T16:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_05.png",
+      "time": "2020-01-01T07:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_05.png",
+      "time": "2020-01-01T17:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_06.png",
+      "time": "2020-01-01T05:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_06.png",
+      "time": "2020-01-01T19:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_07.png",
+      "time": "2020-01-01T04:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_07.png",
+      "time": "2020-01-01T20:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_08.png",
+      "time": "2020-01-01T03:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_08.png",
+      "time": "2020-01-01T21:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_09.png",
+      "time": "2020-01-01T02:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_09.png",
+      "time": "2020-01-01T22:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_10.png",
+      "time": "2020-01-01T01:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_10.png",
+      "time": "2020-01-01T23:00:00Z"
+    },
+    {
+      "fileName": "wallpaper_11.png",
+      "time": "2020-01-01T00:00:00Z",
+      "isForDark": true
+    }
+  ]
+}

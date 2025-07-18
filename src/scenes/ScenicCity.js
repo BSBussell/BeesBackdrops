@@ -44,7 +44,7 @@ export async function createScenicCity(app, options = {}) {
     // Moon
     { alias: 'scenic_moon', src: './assets/TreeLayers/moon-no-red.png' },
     // Ambient sound
-    { alias: 'scenic_ambience', src: './assets/ambience/distant_city.mp3'}
+    // { alias: 'scenic_ambience', src: './assets/ambience/distant_city.mp3'}
     ]);
 
 
@@ -326,10 +326,10 @@ export async function createScenicCity(app, options = {}) {
     rootContainer.addChild(lakeLayer.container);
 
     // Play ambient sound
-    const ambience = PIXI.sound.Sound.from(PIXI.Assets.get('scenic_ambience'));
-    ambience.loop = true;
-    ambience.volume = 0.2;
-    ambience.play();
+    // const ambience = PIXI.sound.Sound.from(PIXI.Assets.get('scenic_ambience'));
+    // ambience.loop = true;
+    // ambience.volume = 0.2;
+    // ambience.play();
 
     return {container: rootContainer};
 
